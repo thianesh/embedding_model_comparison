@@ -90,6 +90,7 @@ if st.button("Search in all models."):
                         if meta:
                             st.caption(f"meta: {meta}")
                         st.markdown("---")
+            all_model_result
 
 if not models:
     st.info("No models found. Add some models on the Models page.")
@@ -169,6 +170,6 @@ else:
                                 if meta:
                                     st.caption(f"meta: {meta}")
                                 st.markdown("---")
-
+                    all_model_result
 
 st.write("Current table data:", st.session_state.table_data)
