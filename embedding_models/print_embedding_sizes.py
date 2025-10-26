@@ -1,16 +1,18 @@
 from sentence_transformers import SentenceTransformer
 import os
 from dotenv import load_dotenv
+from models_conf import models_to_use
 
 load_dotenv()
 device = os.getenv("DEVICE")
+HF_TOKEN = os.environ.get("HUGGINGFACE_HUB_TOKEN")  # preferred
 
-models = [
-        {"model": "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract", "bucket": "vector-db-storage-exp", "index": "5999368648727199744"},
-        {"model": "Qwen/Qwen3-Embedding-0.6B", "bucket": "my-bucket-2", "index": "bio-index"},
-        {"model": "abhinand/MedEmbed-small-v0.1", "bucket": "my-bucket-3", "index": "st-index"},
-        {"model": "google/embeddinggemma-300m", "bucket": "my-bucket-4", "index": "scibert-index"},
-    ]
+from huggingface_hub import snapshot_download
+models = models_to_use
+
+for model in models:
+    print(f"downloading model: {model['model']} token: {HF_TOKEN}")
+    snapshot_download(repo_id=model['model'], repo_type="model", token=HF_TOKEN)
 
 for model in models:
     embed_model = SentenceTransformer(model['model'], device=device)

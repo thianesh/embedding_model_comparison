@@ -4,6 +4,16 @@ import os
 
 TEMP_FILE = "models_temp.json"
 
+# Source dropdown + single root-level button (paste this)
+if "source" not in st.session_state:
+    st.session_state["source"] = "sqlite(local)"
+
+source_option = st.selectbox("Select source", ["sqlite(local)", "vector search(gcp)"], key="source_select")
+
+if st.button("Set Source"):
+    st.session_state["source"] = source_option
+    st.success(f"Source saved in session: {source_option}")
+
 # Load models from temp file if exists
 if os.path.exists(TEMP_FILE):
     with open(TEMP_FILE, "r") as f:

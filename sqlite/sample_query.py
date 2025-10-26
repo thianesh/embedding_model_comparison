@@ -6,7 +6,7 @@ import os
 import json
 from typing import List, Tuple
 
-DB = "./index_metadata.db"
+DB = "./sqlite/index_metadata.db"
 
 # from sklearn.metrics.pairwise import cosine_similarity
 
@@ -46,6 +46,15 @@ def fetch_all(model: str) -> List[Tuple[str, str, bytes, int]]:
     rows = cur.fetchall()
     conn.close()
     return rows
+
+def delete_all_rows(model):
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+    cur.execute("DELETE * FROM docs WHERE model = ?"
+                , (model,))
+    conn.commit()  # Commit the deletion
+    conn.close()
+    return True
 
 def to_blob(vec: np.ndarray) -> bytes:
     # store as float32 bytes (compact)

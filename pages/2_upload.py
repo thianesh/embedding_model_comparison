@@ -2,6 +2,7 @@ import json
 import time
 import uuid
 from embedding_orchestrator.upload_to_bucket import upload_string_to_bucket
+from sqlite.sample_query import insert_doc
 import streamlit as st
 from embedding_models.all_embedding_models import get_model, get_models
 
@@ -108,33 +109,56 @@ with col3:
                         del embed_model
                         st.write(f"(4/5) Vector to bucket")
                         
-                        ## Creating vector with metadata
-                        jsonl_to_save = []
-                        i = 1
-                        folder_name = f"{int(time.time())}_id_{uuid.uuid4()}"
-                        for chunk, embedding in zip(chunks, embeddings):
-                            unique_id = str(uuid.uuid4())
-                            single_data = {
-                                "id": unique_id, 
-                                "embedding": [float(x) for x in embedding], 
-                                "embedding_metadata": {
-                                    "title": "Medembed test", 
-                                    "source": "from streamlit dev spike oct 25 2025",
-                                    "text": chunk,
-                                    "chunk_conf": st.session_state.get('chunk_conf', {})
-                                    }
-                            }
-                            single_data_json = json.dumps(single_data)
+                        vector_source = st.session_state.get("source") 
+                        assert vector_source
+                        if vector_source == "sqlite(local)":
+                            st.write(f"**Using sqlite - Local**")
+                            i = 1
+                            for chunk, embedding in zip(chunks, embeddings):
+                                unique_id = str(uuid.uuid4())
+                                st.write(f"saving {i}/{len(chunks)} embedding")
+                                insert_doc(
+                                    doc_id=unique_id,
+                                    content=chunk,
+                                    vec=embedding,
+                                    meta={
+                                        "title": "Medembed test", 
+                                        "source": "from streamlit dev spike oct 25 2025",
+                                        "text": chunk,
+                                        "chunk_conf": st.session_state.get('chunk_conf', {})
+                                        },
+                                    model=model['model']
+                                )
+                                i+=1
+                        elif vector_source == "vector search(gcp)":
+                            st.write(f"**Using vector search - remote**")
+                            ## Creating vector with metadata
+                            jsonl_to_save = []
+                            i = 1
+                            folder_name = f"{int(time.time())}_id_{uuid.uuid4()}"
+                            for chunk, embedding in zip(chunks, embeddings):
+                                unique_id = str(uuid.uuid4())
+                                single_data = {
+                                    "id": unique_id, 
+                                    "embedding": [float(x) for x in embedding], 
+                                    "embedding_metadata": {
+                                        "title": "Medembed test", 
+                                        "source": "from streamlit dev spike oct 25 2025",
+                                        "text": chunk,
+                                        "chunk_conf": st.session_state.get('chunk_conf', {})
+                                        }
+                                }
+                                single_data_json = json.dumps(single_data)
 
-                            st.write(f"saving {i}/{len(chunks)} embedding")
-                            upload_string_to_bucket(
-                                bucket_name=model["bucket"],
-                                content=single_data_json,
-                                destination_blob_name=f"{model['model'].replace("/", "-")}_time_{folder_name}/data_{unique_id}.json"
-                            )
-                            i += 1
+                                st.write(f"saving {i}/{len(chunks)} embedding")
+                                upload_string_to_bucket(
+                                    bucket_name=model["bucket"],
+                                    content=single_data_json,
+                                    destination_blob_name=f"{model['model'].replace("/", "-")}_time_{folder_name}/data_{unique_id}.json"
+                                )
+                                i += 1
 
-                        
+                            
                         st.write(f"(5/5) Indexing")
 
 
