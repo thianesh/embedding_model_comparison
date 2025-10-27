@@ -50,7 +50,7 @@ def fetch_all(model: str) -> List[Tuple[str, str, bytes, int]]:
 def delete_all_rows(model):
     conn = sqlite3.connect(DB)
     cur = conn.cursor()
-    cur.execute("DELETE * FROM docs WHERE model = ?"
+    cur.execute("DELETE FROM docs WHERE model = ?"
                 , (model,))
     conn.commit()  # Commit the deletion
     conn.close()
