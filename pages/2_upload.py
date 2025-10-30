@@ -6,27 +6,53 @@ from sqlite.sample_query import insert_doc
 import streamlit as st
 from embedding_models.all_embedding_models import get_model, get_models
 
-# ----------------------
-# Chunking function
-# ----------------------
-def chunk_text(text: str, chunk_size: int, chunk_overlap: int, split_by: str = "word"):
+from util.token_chunker import token_level_chunks
+
+def chunk_text(text: str, chunk_size: int, chunk_overlap: int, split_by: str = "word", model_name: str = None):
+    """
+    If split_by == "token", model_name must be provided (HF model id).
+    """
     import re
 
     if split_by == "sentence":
         items = re.split(r'(?<=[.!?])\s+', text)
-    else:
-        items = text.split()
+        # existing sentence-level chunking (like your original)
+        chunks = []
+        i = 0
+        while i < len(items):
+            chunk = items[i:i+chunk_size]
+            chunks.append(" ".join(chunk))
+            i += chunk_size - chunk_overlap
+            if i < 0:
+                i = 0
+                break
+        return chunks
 
-    chunks = []
-    i = 0
-    while i < len(items):
-        chunk = items[i:i+chunk_size]
-        chunks.append(" ".join(chunk) if split_by == "word" else " ".join(chunk))
-        i += chunk_size - chunk_overlap
-        if i < 0:
-            i = 0
-            break
-    return chunks
+    if split_by == "word":
+        items = text.split()
+        chunks = []
+        i = 0
+        while i < len(items):
+            chunk = items[i:i+chunk_size]
+            chunks.append(" ".join(chunk))
+            i += chunk_size - chunk_overlap
+            if i < 0:
+                i = 0
+                break
+        return chunks
+
+    if split_by == "token":
+        if model_name is None:
+            raise ValueError("model_name must be provided for token-level chunking")
+        return token_level_chunks(
+            text=text,
+            model_name=model_name,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            add_special_tokens=False,
+        )
+
+    raise ValueError("split_by must be one of: 'word', 'sentence', 'token'")
 
 # ----------------------
 st.write("### Upload / Paste Text and Chunk")
@@ -48,7 +74,13 @@ with col1:
     st.write("### Chunking Parameters")
     chunk_size = st.number_input("Chunk size", min_value=1, value=50, step=1)
     chunk_overlap = st.number_input("Chunk overlap", min_value=0, value=10, step=1)
-    split_by = st.selectbox("Split by", options=["word", "sentence"])
+    split_by = st.selectbox("Split by", options=["word", "sentence", "token"])
+
+    model_name_for_token = None
+    if split_by == "token":
+        # assume model selection exists on right-hand card; here quick input:
+        model_name_for_token = st.text_input("Tokenizer model (HF id)", value="sentence-transformers/all-MiniLM-L6-v2")
+
     
     st.session_state["chunk_conf"] = {
         "chunk_size":  chunk_size,
@@ -64,7 +96,8 @@ with col1:
                 text=text_input,
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
-                split_by=split_by
+                split_by=split_by,
+                model_name=model_name_for_token
             )
 
 # ----------------------
