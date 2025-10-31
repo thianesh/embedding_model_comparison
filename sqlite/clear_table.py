@@ -28,6 +28,6 @@ def fetch_everything() -> List[Tuple[str, str, bytes, int]]:
     conn.close()
     return rows
 
-print(fetch_everything())
+# print(fetch_everything())
 print(clear_all("docs"))
 print(fetch_everything())
