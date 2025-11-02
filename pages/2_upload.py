@@ -241,8 +241,10 @@ with col3:
                 with st.spinner(text="In progress...", show_time=True, width="content"):
                     for model in models:
                         st.write(f"**Processing model: {model['model']}**")
+                        st.write(f"(1/4) Loading model")
                         embed_model = get_model(model['model'])
 
+                        st.write(f"(2/4) Embedding chunks in batches (total chunks: {total_chunks}, batch size {batch_size})")
                         # encode in batches
                         all_embeddings = []
                         processed = 0
@@ -255,9 +257,11 @@ with col3:
                                 all_embeddings.append((item, emb))
                             processed += len(texts)
 
+                        st.write(f"(3/4) Removing model from memory")
                         # done with model
                         del embed_model
 
+                        st.write(f"(4/4) Saving embedding vectors")
                         vector_source = st.session_state.get("source") 
                         assert vector_source
                         if vector_source == "sqlite(local)":

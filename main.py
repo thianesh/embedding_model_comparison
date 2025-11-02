@@ -19,6 +19,7 @@ pg = st.navigation([
         "pages/1_models.py", 
         "pages/2_upload.py",
         "pages/3_query.py",        
+        "pages/4_query_bulk.py",        
         ]) 
 
 pg.run()
