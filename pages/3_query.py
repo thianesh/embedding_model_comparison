@@ -146,6 +146,7 @@ if st.button("Search in all models."):
                             st.caption(f"meta: {meta}")
                         st.markdown("---")
 
+            all_model_result
 # --- Per-model search buttons (individual) ---
 if not models:
     st.info("No models found. Add some models on the Models page.")
@@ -206,4 +207,5 @@ else:
                                     st.caption(f"meta: {meta}")
                                 st.markdown("---")
 
+                    all_model_result
 st.write("Current table data:", st.session_state.table_data)

@@ -61,14 +61,27 @@ st.write("### Upload / Paste Text and Chunk")
 # 3-column layout
 col1, col2, col3 = st.columns([1, 2, 1])  # right column for model cards
 
-# ----------------------
-# Left column: input + chunk parameters
+# Left column: accept multiple files (max 1000) and chunk per-file
 with col1:
-    uploaded_file = st.file_uploader("Upload a text file", type=["txt", "csv", "json"])
-    text_input = st.text_area("Or paste text here", height=200)
+    # Allow multiple file uploads, limit to 1000 files
+    uploaded_files = st.file_uploader(
+        "Upload text files (you can select multiple)", 
+        type=["txt", "csv", "json"], 
+        accept_multiple_files=True
+    )
+    text_input = st.text_area("Or paste text here (used only if no files uploaded)", height=200)
 
-    if uploaded_file is not None:
-        text_input = uploaded_file.read().decode("utf-8")
+    # If files are uploaded, enforce a hard max and show counts
+    MAX_FILES = 1000
+    if uploaded_files:
+        if len(uploaded_files) > MAX_FILES:
+            st.warning(f"You uploaded {len(uploaded_files)} files — only the first {MAX_FILES} will be processed.")
+            uploaded_files = uploaded_files[:MAX_FILES]
+
+        # Preview uploaded files
+        st.write(f"Uploaded {len(uploaded_files)} file(s):")
+        for f in uploaded_files:
+            st.write(f"- {f.name} ({f.type or 'unknown type'}, size={getattr(f, 'size', 'unknown')} bytes)")
 
     # Chunking parameters
     st.write("### Chunking Parameters")
@@ -81,24 +94,98 @@ with col1:
         # assume model selection exists on right-hand card; here quick input:
         model_name_for_token = st.text_input("Tokenizer model (HF id)", value="sentence-transformers/all-MiniLM-L6-v2")
 
-    
     st.session_state["chunk_conf"] = {
-        "chunk_size":  chunk_size,
+        "chunk_size": chunk_size,
         "overlap": chunk_overlap,
         "split_by": split_by
     }
+
     # Chunk button
     if st.button("Chunk Text"):
-        if not text_input.strip():
-            st.warning("Please provide text or upload a file.")
+        # Validate input: either files or pasted text required
+        if (not uploaded_files or len(uploaded_files) == 0) and not text_input.strip():
+            st.warning("Please provide text (paste) or upload at least one file.")
         else:
-            st.session_state["chunks"] = chunk_text(
-                text=text_input,
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-                split_by=split_by,
-                model_name=model_name_for_token
+            # If files present, chunk each file separately and keep metadata
+            all_chunks = []
+            if uploaded_files and len(uploaded_files) > 0:
+                # Process files one-by-one to avoid mixing contexts
+                st.info("Processing uploaded files...")
+                for f in uploaded_files:
+                    try:
+                        raw = f.read()
+                        # decode bytes to str (handle both text and csv/json as utf-8)
+                        if isinstance(raw, bytes):
+                            text = raw.decode("utf-8", errors="replace")
+                        else:
+                            text = str(raw)
+                    except Exception as e:
+                        st.error(f"Failed to read {f.name}: {e}")
+                        continue
+
+                    # Optional: prepend filename boundary so chunks keep provenance
+                    header = f"\n\n--- FILE: {f.name} ---\n\n"
+                    text_with_header = header + text
+
+                    file_chunks = chunk_text(
+                        text=text_with_header,
+                        chunk_size=chunk_size,
+                        chunk_overlap=chunk_overlap,
+                        split_by=split_by,
+                        model_name=model_name_for_token
+                    )
+
+                    # Keep filename with its chunks
+                    all_chunks.append({
+                        "filename": f.name,
+                        "num_chunks": len(file_chunks),
+                        "chunks": file_chunks
+                    })
+                    st.write(f"→ {f.name}: {len(file_chunks)} chunks")
+
+            else:
+                # No files uploaded — chunk the pasted text as single "virtual file"
+                st.info("Processing pasted text...")
+                text = text_input
+                file_chunks = chunk_text(
+                    text=text,
+                    chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap,
+                    split_by=split_by,
+                    model_name=model_name_for_token
+                )
+                all_chunks.append({
+                    "filename": "pasted_text",
+                    "num_chunks": len(file_chunks),
+                    "chunks": file_chunks
+                })
+                st.write(f"Pasted text: {len(file_chunks)} chunks")
+
+            # Save into session_state for downstream use
+            st.session_state["chunks"] = all_chunks
+            st.success("Chunking complete.")
+
+    # Download chunks as JSON
+    # if st.button("Download Chunks as JSON"):
+        chunks = st.session_state.get("chunks", [])
+        if not chunks:
+            st.warning("No chunks available to download. Please chunk text first.")
+        else:
+            # Prepare JSON structure
+            output_data = {
+                "chunk_conf": st.session_state.get("chunk_conf", {}),
+                "files": chunks
+            }
+            json_str = json.dumps(output_data, indent=2)
+
+            # Provide download link
+            st.download_button(
+                label="Download Chunks JSON",
+                data=json_str,
+                file_name="chunked_text.json",
+                mime="application/json"
             )
+
 
 # ----------------------
 # Middle column: scrollable chunk preview
@@ -111,8 +198,7 @@ with col2:
     else:
         st.write("Chunks will appear here after clicking 'Chunk Text'.")
 
-# ----------------------
-# Right column: model cards
+# --- START REPLACEMENT FOR Right column: model cards ---
 with col3:
     st.write("### Embedding Models")
     # Make sure models exist
@@ -120,82 +206,199 @@ with col3:
     if not models:
         st.info("No models found. Add some models on the Models page.")
     else:
-        for i, model in enumerate(models):
-            st.markdown(f"**{model['model']}**")
-            if st.button(f"Embed, Upload and Index ({model['model']})", key=f"embed_{i}"):
-                if not chunks:
-                    st.warning("Chunk the text first!")
-                else:
-                    st.success(f"Started for {model['model']}.")
+        # NEW: batching control
+        st.write("### Batch / throughput settings")
+        batch_size = st.number_input("Embedding batch size", min_value=1, value=64, step=1, help="Number of chunks to encode per model call")
 
-                    with st.spinner(text="In progress...", show_time=True, width="content"):
-                        # for i in range(5):
-                        #     time.sleep(0.5)  # simulate work
-                        #     st.write(f"Step {i+1}/5 done")  # dynamic message updates
-                        
-                        st.write(f"(1/5) Loading model: {model['model']}")
+        # Prepare flattened chunk items from session_state["chunks"]
+        # New expected format: list of { "filename":..., "num_chunks": int, "chunks": [ ... ] }
+        raw_chunks = st.session_state.get("chunks", [])
+        # flattened list of dicts: { filename, file_chunk_count, chunk_index (0-based), text }
+        chunk_items = []
+        for file_entry in raw_chunks:
+            fname = file_entry.get("filename", "unknown")
+            file_chunk_count = file_entry.get("num_chunks", len(file_entry.get("chunks", [])))
+            for idx, c in enumerate(file_entry.get("chunks", [])):
+                chunk_items.append({
+                    "filename": fname,
+                    "file_chunk_count": file_chunk_count,
+                    "chunk_index": idx,
+                    "text": c
+                })
+
+        total_chunks = len(chunk_items)
+        # helper to yield batches
+        def batched(iterable, n):
+            for i in range(0, len(iterable), n):
+                yield iterable[i:i+n]
+
+        # NOTE: chunk_items may be empty; keep previous behaviour
+        if st.button(f"Embed, Upload and Index for all", key=f"embed_all"):
+            if total_chunks == 0:
+                st.warning("Chunk the text first!")
+            else:
+                st.success(f"Started for all models.")
+                with st.spinner(text="In progress...", show_time=True, width="content"):
+                    for model in models:
+                        st.write(f"**Processing model: {model['model']}**")
                         embed_model = get_model(model['model'])
-                        st.write(f"(2/5) Embedding chunks")
-                        embeddings = embed_model.encode(chunks)
-                        embeddings
-                        st.write(f"(3/5) Removing model from memory")
+
+                        # encode in batches
+                        all_embeddings = []
+                        processed = 0
+                        for batch in batched(chunk_items, batch_size):
+                            texts = [item["text"] for item in batch]
+                            st.write(f"Embedding batch: {processed+1} -> {processed+len(texts)} / {total_chunks}")
+                            embeddings = embed_model.encode(texts)
+                            # assume embeddings align with texts order
+                            for item, emb in zip(batch, embeddings):
+                                all_embeddings.append((item, emb))
+                            processed += len(texts)
+
+                        # done with model
                         del embed_model
-                        st.write(f"(4/5) Vector to bucket")
-                        
+
                         vector_source = st.session_state.get("source") 
                         assert vector_source
                         if vector_source == "sqlite(local)":
                             st.write(f"**Using sqlite - Local**")
                             i = 1
-                            for chunk, embedding in zip(chunks, embeddings):
+                            for item, embedding in all_embeddings:
                                 unique_id = str(uuid.uuid4())
-                                st.write(f"saving {i}/{len(chunks)} embedding")
+                                st.write(f"saving {i}/{total_chunks} embedding ({item['filename']} #{item['chunk_index']+1}/{item['file_chunk_count']})")
                                 insert_doc(
                                     doc_id=unique_id,
-                                    content=chunk,
+                                    content=item["text"],
                                     vec=embedding,
                                     meta={
-                                        "title": "Medembed test", 
-                                        "source": "from streamlit dev spike oct 25 2025",
-                                        "text": chunk,
+                                        "title": item.get("filename"),
+                                        "source": "from streamlit dev spike",
+                                        "text": item["text"],
+                                        "filename": item.get("filename"),
+                                        "file_chunk_count": item.get("file_chunk_count"),
+                                        "chunk_index": item.get("chunk_index"),
                                         "chunk_conf": st.session_state.get('chunk_conf', {})
-                                        },
+                                    },
                                     model=model['model']
                                 )
                                 i+=1
                         elif vector_source == "vector search(gcp)":
                             st.write(f"**Using vector search - remote**")
-                            ## Creating vector with metadata
-                            jsonl_to_save = []
                             i = 1
                             folder_name = f"{int(time.time())}_id_{uuid.uuid4()}"
-                            for chunk, embedding in zip(chunks, embeddings):
+                            for item, embedding in all_embeddings:
                                 unique_id = str(uuid.uuid4())
                                 single_data = {
                                     "id": unique_id, 
                                     "embedding": [float(x) for x in embedding], 
                                     "embedding_metadata": {
-                                        "title": "Medembed test", 
-                                        "source": "from streamlit dev spike oct 25 2025",
-                                        "text": chunk,
+                                        "title": item.get("filename"),
+                                        "source": "from streamlit dev spike",
+                                        "text": item["text"],
+                                        "filename": item.get("filename"),
+                                        "file_chunk_count": item.get("file_chunk_count"),
+                                        "chunk_index": item.get("chunk_index"),
                                         "chunk_conf": st.session_state.get('chunk_conf', {})
-                                        }
+                                    }
                                 }
                                 single_data_json = json.dumps(single_data)
-
-                                st.write(f"saving {i}/{len(chunks)} embedding")
+                                st.write(f"saving {i}/{total_chunks} embedding ({item['filename']} #{item['chunk_index']+1}/{item['file_chunk_count']})")
                                 upload_string_to_bucket(
                                     bucket_name=model["bucket"],
                                     content=single_data_json,
-                                    destination_blob_name=f"{model['model'].replace("/", "-")}_time_{folder_name}/data_{unique_id}.json"
+                                    destination_blob_name=f"{model['model'].replace('/', '-')}_time_{folder_name}/data_{unique_id}.json"
                                 )
                                 i += 1
 
-                            
+                    time.sleep(0.5)
+
+                st.success("✅ Completed!")
+
+        # Individual model buttons (per-model) — updated to use chunk_items + batching
+        for i, model in enumerate(models):
+            st.markdown(f"**{model['model']}**")
+            if st.button(f"Embed, Upload and Index ({model['model']})", key=f"embed_{i}"):
+                if total_chunks == 0:
+                    st.warning("Chunk the text first!")
+                else:
+                    st.success(f"Started for {model['model']}.")
+                    with st.spinner(text="In progress...", show_time=True, width="content"):
+                        st.write(f"(1/5) Loading model: {model['model']}")
+                        embed_model = get_model(model['model'])
+                        st.write(f"(2/5) Embedding {total_chunks} chunks (batch size {batch_size})")
+
+                        all_embeddings = []
+                        processed = 0
+                        for batch in batched(chunk_items, batch_size):
+                            texts = [item["text"] for item in batch]
+                            st.write(f"Embedding batch: {processed+1} -> {processed+len(texts)} / {total_chunks}")
+                            embeddings = embed_model.encode(texts)
+                            for item, emb in zip(batch, embeddings):
+                                all_embeddings.append((item, emb))
+                            processed += len(texts)
+
+                        st.write(f"(3/5) Removing model from memory")
+                        del embed_model
+                        st.write(f"(4/5) Vector to bucket")
+
+                        vector_source = st.session_state.get("source")
+                        assert vector_source
+                        if vector_source == "sqlite(local)":
+                            st.write(f"**Using sqlite - Local**")
+                            j = 1
+                            for item, embedding in all_embeddings:
+                                unique_id = str(uuid.uuid4())
+                                st.write(f"saving {j}/{total_chunks} embedding ({item['filename']} #{item['chunk_index']+1}/{item['file_chunk_count']})")
+                                insert_doc(
+                                    doc_id=unique_id,
+                                    content=item["text"],
+                                    vec=embedding,
+                                    meta={
+                                        "title": item.get("filename"),
+                                        "source": "from streamlit dev spike",
+                                        "text": item["text"],
+                                        "filename": item.get("filename"),
+                                        "file_chunk_count": item.get("file_chunk_count"),
+                                        "chunk_index": item.get("chunk_index"),
+                                        "chunk_conf": st.session_state.get('chunk_conf', {})
+                                    },
+                                    model=model['model']
+                                )
+                                j+=1
+                        elif vector_source == "vector search(gcp)":
+                            st.write(f"**Using vector search - remote**")
+                            j = 1
+                            folder_name = f"{int(time.time())}_id_{uuid.uuid4()}"
+                            for item, embedding in all_embeddings:
+                                unique_id = str(uuid.uuid4())
+                                single_data = {
+                                    "id": unique_id,
+                                    "embedding": [float(x) for x in embedding],
+                                    "embedding_metadata": {
+                                        "title": item.get("filename"),
+                                        "source": "from streamlit dev spike",
+                                        "text": item["text"],
+                                        "filename": item.get("filename"),
+                                        "file_chunk_count": item.get("file_chunk_count"),
+                                        "chunk_index": item.get("chunk_index"),
+                                        "chunk_conf": st.session_state.get('chunk_conf', {})
+                                    }
+                                }
+                                single_data_json = json.dumps(single_data)
+                                st.write(f"saving {j}/{total_chunks} embedding ({item['filename']} #{item['chunk_index']+1}/{item['file_chunk_count']})")
+                                upload_string_to_bucket(
+                                    bucket_name=model["bucket"],
+                                    content=single_data_json,
+                                    destination_blob_name=f"{model['model'].replace('/', '-')}_time_{folder_name}/data_{unique_id}.json"
+                                )
+                                j += 1
+
                         st.write(f"(5/5) Indexing")
-
-
                         time.sleep(0.5)
 
-
                     st.success("✅ Completed!")
+# --- END REPLACEMENT ---
+
+
+
+

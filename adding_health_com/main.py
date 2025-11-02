@@ -50,14 +50,16 @@ import numpy as np
 
 def get_batched_embeddings(embed_model, chunks, batch_size=5):
     all_embeddings = []
+    all_chunks = []
 
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i : i + batch_size]
+        all_chunks.append(batch)
         embeddings = embed_model.encode(batch)
         all_embeddings.append(embeddings)
 
     # Combine all embeddings into a single numpy array
-    return np.vstack(all_embeddings)
+    return np.vstack(all_embeddings), all_chunks
 
 embed_model = get_model(model_name)
 
