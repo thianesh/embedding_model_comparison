@@ -16,6 +16,14 @@ models = st.session_state.get("table_data", [])
 query_text = st.text_area("Enter your query")
 ground_truth_chunk = st.text_area("Ground truth chunk (optional) - paste the exact chunk you expect to be retrieved")
 
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+load_dotenv()   
+import numpy as np
+
+# Initialize client
+client = OpenAI()
 def _normalize_text(s: str) -> str:
     """Normalize for comparison: strip, collapse whitespace, lower-case."""
     if s is None:
@@ -102,7 +110,26 @@ if st.button("Search in all models."):
                 st.write(f"(1/5) Loading model: {model['model']}")
                 embed_model = get_model(model['model'])
                 st.write(f"(2/5) Embedding query")
-                embeddings = embed_model.encode(query_text)
+                embeddings = None
+                if type(embed_model) is str:
+                    st.write("Using OpenAI API for embeddings")
+                    response = client.embeddings.create(
+                        model=embed_model.replace("openai/", ""),   # or "text-embedding-3-large"
+                        input=query_text
+                    )
+                    def openai_embedding_to_numpy(response):
+                        """
+                        Convert OpenAI embedding response into a 2D NumPy array.
+                        Shape -> (total_embeddings, embedding_vector_size)
+                        """
+                        # Extract embeddings from response.data
+                        embeddings = [item.embedding for item in response.data]
+                        return np.array(embeddings, dtype=np.float32)
+                    embeddings = openai_embedding_to_numpy(response)
+                    embeddings
+                else:
+                    embeddings = embed_model.encode(query_text)
+                
                 st.write(f"(3/5) Removing model from memory")
                 del embed_model
                 st.write(f"(4/5) Dense Vector Search")
@@ -163,7 +190,26 @@ else:
                     st.write(f"(1/5) Loading model: {model['model']}")
                     embed_model = get_model(model['model'])
                     st.write(f"(2/5) Embedding query")
-                    embeddings = embed_model.encode(query_text)
+                    embeddings = None
+                    if type(embed_model) is str:
+                        st.write("Using OpenAI API for embeddings")
+                        response = client.embeddings.create(
+                            model=embed_model.replace("openai/", ""),   # or "text-embedding-3-large"
+                            input=query_text
+                        )
+                        def openai_embedding_to_numpy(response):
+                            """
+                            Convert OpenAI embedding response into a 2D NumPy array.
+                            Shape -> (total_embeddings, embedding_vector_size)
+                            """
+                            # Extract embeddings from response.data
+                            embeddings = [item.embedding for item in response.data]
+                            return np.array(embeddings, dtype=np.float32)
+                        embeddings = openai_embedding_to_numpy(response)
+                        embeddings
+                    else:
+                        embeddings = embed_model.encode(query_text)
+                    
                     st.write(f"(3/5) Removing model from memory")
                     del embed_model
                     st.write(f"(4/5) Dense Vector Search")

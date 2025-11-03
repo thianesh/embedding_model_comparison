@@ -1,6 +1,6 @@
 models_to_use =  [
         {"model": "NeuML/pubmedbert-base-embeddings", "bucket": "vector-db-storage-exp", "index": "5999368648727199744"},
-        
+
         # {"model": "infgrad/jasper_en_vision_language_v1", "bucket": "", "index": ""}, # 1B
         # {"model": "jinaai/jina-embeddings-v3", "bucket": "", "index": ""}, # 572 M
         {"model": "Alibaba-NLP/gte-Qwen2-1.5B-instruct", "bucket": "", "index": ""}, # just 1B but 4th in rankings 
@@ -12,9 +12,13 @@ models_to_use =  [
         {"model": "abhinand/MedEmbed-small-v0.1", "bucket": "my-bucket-3", "index": "st-index"},
         {"model": "HIT-TMG/KaLM-embedding-multilingual-mini-instruct-v1", "bucket": "my-bucket-4", "index": "scibert-index"},
         {"model": "google/embeddinggemma-300m", "bucket": "my-bucket-4", "index": "scibert-index"},
-        {"model": "BAAI/bge-base-en-v1.5", "bucket": "my-bucket-4", "index": "scibert-index"}
+        {"model": "BAAI/bge-base-en-v1.5", "bucket": "my-bucket-4", "index": "scibert-index"},
+
+        {"model": "openai/text-embedding-3-small", "bucket": "my-bucket-4", "index": "scibert-index"},
+        {"model": "openai/text-embedding-3-large", "bucket": "my-bucket-4", "index": "scibert-index"},
+        {"model": "openai/text-embedding-ada-002", "bucket": "my-bucket-4", "index": "scibert-index"}
     ]
-# remote code
+# remote codes
 # {"model": "Snowflake/snowflake-arctic-embed-m-v2.0", "bucket": "my-bucket-4", "index": "scibert-index"},
 # {"model": "Alibaba-NLP/gte-multilingual-base", "bucket": "my-bucket-4", "index": "scibert-index"}
 

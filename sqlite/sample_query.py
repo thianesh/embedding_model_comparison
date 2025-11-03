@@ -70,10 +70,13 @@ def insert_doc(doc_id: str, content: str, vec: np.ndarray, meta: dict = None, mo
     conn.commit()
     conn.close()
 
-if __name__ == "__main__":
-    # query vector (length 3)
-    q = np.array([0.9, 0.1, 0.0], dtype=np.float32)
-    results = query_knn(q, k=2, model="sample")
-    print("Top results (score, id, snippet):")
-    for score, doc_id, content, meta, model in results:
-        print(f"{score:.6f}\t{doc_id}\t{content}")
+# if __name__ == "__main__":
+#     # query vector (length 3)
+#     q = np.array([0.9, 0.1, 0.0], dtype=np.float32)
+#     results = query_knn(q, k=2, model="sample")
+#     print("Top results (score, id, snippet):")
+#     for score, doc_id, content, meta, model in results:
+#         print(f"{score:.6f}\t{doc_id}\t{content}")
+
+result = fetch_all("BAAI/bge-base-en-v1.5")
+print(result[0])

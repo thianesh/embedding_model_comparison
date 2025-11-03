@@ -8,6 +8,14 @@ from embedding_models.all_embedding_models import get_model, get_models
 
 from util.token_chunker import token_level_chunks
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+from openai import OpenAI
+# Initialize client
+client = OpenAI()
+import numpy as np
+
 def chunk_text(text: str, chunk_size: int, chunk_overlap: int, split_by: str = "word", model_name: str = None):
     """
     If split_by == "token", model_name must be provided (HF model id).
@@ -251,7 +259,24 @@ with col3:
                         for batch in batched(chunk_items, batch_size):
                             texts = [item["text"] for item in batch]
                             st.write(f"Embedding batch: {processed+1} -> {processed+len(texts)} / {total_chunks}")
-                            embeddings = embed_model.encode(texts)
+                            embeddings = None
+                            if type(embed_model) is str:
+                                response = client.embeddings.create(
+                                    model=embed_model.replace("openai/", ""),   # or "text-embedding-3-large"
+                                    input=texts
+                                )
+                                def openai_embedding_to_numpy(response):
+                                    """
+                                    Convert OpenAI embedding response into a 2D NumPy array.
+                                    Shape -> (total_embeddings, embedding_vector_size)
+                                    """
+                                    # Extract embeddings from response.data
+                                    embeddings = [item.embedding for item in response.data]
+                                    return np.array(embeddings, dtype=np.float32)
+                                embeddings = openai_embedding_to_numpy(response)
+                            else:
+                                embeddings = embed_model.encode(texts)
+                            assert embeddings
                             # assume embeddings align with texts order
                             for item, emb in zip(batch, embeddings):
                                 all_embeddings.append((item, emb))
@@ -336,7 +361,26 @@ with col3:
                         for batch in batched(chunk_items, batch_size):
                             texts = [item["text"] for item in batch]
                             st.write(f"Embedding batch: {processed+1} -> {processed+len(texts)} / {total_chunks}")
-                            embeddings = embed_model.encode(texts)
+                            embeddings = None
+                            if type(embed_model) is str:
+                                st.write("Using OpenAI API for embeddings")
+                                response = client.embeddings.create(
+                                    model=embed_model.replace("openai/", ""),   # or "text-embedding-3-large"
+                                    input=texts
+                                )
+                                def openai_embedding_to_numpy(response):
+                                    """
+                                    Convert OpenAI embedding response into a 2D NumPy array.
+                                    Shape -> (total_embeddings, embedding_vector_size)
+                                    """
+                                    # Extract embeddings from response.data
+                                    embeddings = [item.embedding for item in response.data]
+                                    return np.array(embeddings, dtype=np.float32)
+                                embeddings = openai_embedding_to_numpy(response)
+                                embeddings
+                            else:
+                                embeddings = embed_model.encode(texts)
+                            # assert len(embeddings) <= 0
                             for item, emb in zip(batch, embeddings):
                                 all_embeddings.append((item, emb))
                             processed += len(texts)
