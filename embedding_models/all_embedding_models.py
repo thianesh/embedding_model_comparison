@@ -20,5 +20,7 @@ def get_models(model_names: list):
         models.append(model)
     models
          
-def get_model(model_name: list):
+def get_model(model_name: str):
+    if "openai" in model_name:
+        return model_name
     return SentenceTransformer(model_name, device=device)
