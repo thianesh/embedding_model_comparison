@@ -1,18 +1,19 @@
-models_to_use =  [
-        {"model": "NeuML/pubmedbert-base-embeddings", "bucket": "vector-db-storage-exp", "index": "5999368648727199744"},
-
         # {"model": "infgrad/jasper_en_vision_language_v1", "bucket": "", "index": ""}, # 1B
         # {"model": "jinaai/jina-embeddings-v3", "bucket": "", "index": ""}, # 572 M
-        {"model": "Alibaba-NLP/gte-Qwen2-1.5B-instruct", "bucket": "", "index": ""}, # just 1B but 4th in rankings 
 
-        {"model": "intfloat/multilingual-e5-large-instruct", "bucket": "", "index": ""}, # 560 M
-        {"model": "Snowflake/snowflake-arctic-embed-l-v2.0", "bucket": "", "index": ""}, # 560 M
+models_to_use =  [
+        # {"model": "NeuML/pubmedbert-base-embeddings", "bucket": "vector-db-storage-exp", "index": "5999368648727199744"},
 
-        {"model": "Qwen/Qwen3-Embedding-0.6B", "bucket": "my-bucket-2", "index": "bio-index"},
-        {"model": "abhinand/MedEmbed-small-v0.1", "bucket": "my-bucket-3", "index": "st-index"},
-        {"model": "HIT-TMG/KaLM-embedding-multilingual-mini-instruct-v1", "bucket": "my-bucket-4", "index": "scibert-index"},
-        {"model": "google/embeddinggemma-300m", "bucket": "my-bucket-4", "index": "scibert-index"},
-        {"model": "BAAI/bge-base-en-v1.5", "bucket": "my-bucket-4", "index": "scibert-index"},
+        # {"model": "Alibaba-NLP/gte-Qwen2-1.5B-instruct", "bucket": "", "index": ""}, # just 1B but 4th in rankings 
+
+        # {"model": "intfloat/multilingual-e5-large-instruct", "bucket": "", "index": ""}, # 560 M
+        # {"model": "Snowflake/snowflake-arctic-embed-l-v2.0", "bucket": "", "index": ""}, # 560 M
+
+        # {"model": "Qwen/Qwen3-Embedding-0.6B", "bucket": "my-bucket-2", "index": "bio-index"},
+        # {"model": "abhinand/MedEmbed-small-v0.1", "bucket": "my-bucket-3", "index": "st-index"},
+        # {"model": "HIT-TMG/KaLM-embedding-multilingual-mini-instruct-v1", "bucket": "my-bucket-4", "index": "scibert-index"},
+        # {"model": "google/embeddinggemma-300m", "bucket": "my-bucket-4", "index": "scibert-index"},
+        # {"model": "BAAI/bge-base-en-v1.5", "bucket": "my-bucket-4", "index": "scibert-index"},
 
         {"model": "openai/text-embedding-3-small", "bucket": "my-bucket-4", "index": "scibert-index"},
         {"model": "openai/text-embedding-3-large", "bucket": "my-bucket-4", "index": "scibert-index"},

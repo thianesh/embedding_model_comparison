@@ -9,6 +9,15 @@ import pandas as pd
 from embedding_models.all_embedding_models import get_model
 from sqlite.sample_query import query_knn
 
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+load_dotenv()   
+import numpy as np
+
+# Initialize client
+client = OpenAI()
+
 # ---------- Helpers ----------
 def _normalize_text(s: Optional[str]) -> str:
     """Normalize for comparison: strip, collapse whitespace, lower-case."""
@@ -323,9 +332,30 @@ if st.button("Run bulk search for provided queries"):
 
                     # Try batch encode (single item list), most encoders support list input
                     try:
-                        embeddings = embed_model.encode([q_text])
-                        # embeddings could be ndarray; pick first vector
-                        emb_vec = embeddings[0] if embeddings is not None and len(embeddings) > 0 else None
+                        embeddings = None
+                        if type(embed_model) is str:
+                            st.write("Using OpenAI API for embeddings")
+                            response = client.embeddings.create(
+                                model=embed_model.replace("openai/", ""),   # or "text-embedding-3-large"
+                                input=[q_text]
+                            )
+                            def openai_embedding_to_numpy(response):
+                                """
+                                Convert OpenAI embedding response into a 2D NumPy array.
+                                Shape -> (total_embeddings, embedding_vector_size)
+                                """
+                                # Extract embeddings from response.data
+                                embeddings = [item.embedding for item in response.data]
+                                return np.array(embeddings, dtype=np.float32)
+                            
+                            emb_vec = openai_embedding_to_numpy(response)[0]
+                            # emb_vec = embeddings[0] if embeddings is not None and len(embeddings) > 0 else None
+                            emb_vec.shape
+                            # emb_vec
+                        else:
+                            embeddings = embed_model.encode([q_text])
+                            emb_vec = embeddings[0] if embeddings is not None and len(embeddings) > 0 else None
+                            emb_vec.shape
                     except Exception as e:
                         st.warning(f"Batch encode failed for model {mname}, trying single encode: {e}")
                         try:
