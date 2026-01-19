@@ -125,8 +125,8 @@ if st.button("Search in all models."):
                         # Extract embeddings from response.data
                         embeddings = [item.embedding for item in response.data]
                         return np.array(embeddings, dtype=np.float32)
-                    embeddings = openai_embedding_to_numpy(response)
-                    embeddings
+                    embeddings = openai_embedding_to_numpy(response)[0]
+                    # embeddings
                 else:
                     embeddings = embed_model.encode(query_text)
                 
@@ -205,11 +205,11 @@ else:
                             # Extract embeddings from response.data
                             embeddings = [item.embedding for item in response.data]
                             return np.array(embeddings, dtype=np.float32)
-                        embeddings = openai_embedding_to_numpy(response)
-                        embeddings
+                        embeddings = openai_embedding_to_numpy(response)[0]
+                        # embeddings
                     else:
                         embeddings = embed_model.encode(query_text)
-                    
+                    embeddings.shape
                     st.write(f"(3/5) Removing model from memory")
                     del embed_model
                     st.write(f"(4/5) Dense Vector Search")
